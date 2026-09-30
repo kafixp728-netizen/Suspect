@@ -1,0 +1,77 @@
+-- Suspect ESP Script
+-- Red = Killer, Blue = Innocents
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Function to apply or update ESP on a character
+local function applyESP(player)
+    if player == LocalPlayer then return end
+    
+    local function setupHighlight(character)
+        -- Wait for the character to properly load
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        if not humanoid then return end
+        
+        -- Remove existing ESP highlight if it exists
+        if character:FindFirstChild("ESPHighlight") then
+            character.ESPHighlight:Destroy()
+        end
+        
+        -- Create new Highlight object
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESPHighlight"
+        highlight.Adornee = character
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        
+        -- Determine Role (Red for Killer, Blue for Innocent)
+        -- In Suspect, the Killer character model spawns with an "eat" or "eat point" interaction part
+        if character:FindFirstChild("eat") or character:FindFirstChild("eat point") or character:FindFirstChild("Knife") then
+            highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Red for Killer
+        else
+            highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Blue for Innocent
+        end
+        
+        highlight.Parent = character
+    end
+
+    -- Run if character already exists
+    if player.Character then
+        setupHighlight(player.Character)
+    end
+    
+    -- Listen for when the character respawns or updates next round
+    player.CharacterAdded:Connect(setupHighlight)
+end
+
+-- Monitor all current players
+for _, player in ipairs(Players:GetPlayers()) do
+    applyESP(player)
+end
+
+-- Monitor new players joining the server
+Players.PlayerAdded:Connect(applyESP)
+
+-- Continuous loop to check if roles update mid-round (e.g., when the Killer pulls out a tool)
+task.spawn(function()
+    while task.wait(2) do
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Character and player ~= LocalPlayer then
+                local character = player.Character
+                local highlight = character:FindFirstChild("ESPHighlight")
+                
+                if highlight then
+                    if character:FindFirstChild("eat") or character:FindFirstChild("eat point") or character:FindFirstChild("Knife") then
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0) -- Update to Red if identified as Killer
+                    else
+                        highlight.FillColor = Color3.fromRGB(0, 0, 255) -- Default to Blue
+                    end
+                else
+                    applyESP(player)
+                end
+            end
+        end
+    end
+end)
